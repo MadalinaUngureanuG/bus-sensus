@@ -1,0 +1,48 @@
+.container {
+  padding-top: 20px;
+  padding-bottom: 20px;
+  margin: 5rem auto;
+}
+
+.form-label {
+  margin-left: 0.5rem;
+  font-weight: 700;
+}
+
+.submit-btn {
+  border: 1px solid black;
+  font-weight: 700;
+  background-color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.submit-btn:hover {
+  background-color: lightgrey;
+}
+
+input {
+  border: 1px solid #cdcecf;
+  border-radius: 5px;
+  padding: 5px 10px;
+}
+
+/* --RESPONSIVE-- */
+
+@media (min-width: 720px) {
+  form {
+    max-width: 600px;
+    margin: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .container {
+    margin: 2rem auto;
+  }
+
+  form {
+    max-width: 350px;
+    margin: auto;
+  }
+}
