@@ -1,127 +1,195 @@
-import Bus from '@/interfaces/DummyData';
-import FormData from '@/interfaces/FormData';
-import { Inter } from 'next/font/google'
-import { useEffect, useState } from 'react'
+import { serverUrl } from '../../config';
+import Bus from '@/interfaces/bus';
+import FormData from '@/interfaces/formData';
+import Route from '@/interfaces/route';
+import Station from '@/interfaces/station';
+import { Inter } from 'next/font/google';
+import { useEffect, useState } from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 
-export default function Home() {
-const [busData, setBusData] = useState<Array<Bus>>([]);
-const [selectedBus, setSelectedBus] = useState<Bus>({} as Bus);
-const [formData, setFormData] = useState<FormData>({
-  bus_number:"",
-  bus_route: "",
-  bus_station: "",
-  bus_people: 0,
-  created_at:new Date(),
-  created_by:1
-});
+export default function Home () {
+  const [busData, setBusData] = useState<Array<Bus>>([]);
+  const [routeData, setRouteData] = useState<Array<Route>>([]);
+  const [stationData, setStationData] = useState<Array<Station>>([]);
+  const [selectedBus, setSelectedBus] = useState<string>('');
+  const [formData, setFormData] = useState<FormData>(init());
 
+  // Fetch all data about buses
   useEffect(() => {
-    async function fetchBusData() {
-      const res = await fetch(`api/bus-data`)
+    async function fetchBusData () {
+      const res = await fetch(`${serverUrl}bussensus/buses`);
       let busData: Array<Bus> = await res.json();
       setBusData(busData);
     }
     fetchBusData();
   }, []);
 
-  function onBusChange(data: any) {
-    const bus = JSON.parse(data.target.value)
-    setSelectedBus(bus);
-    formData.bus_number = bus.bus_number;
-    formData.bus_route = "";
-    formData.bus_station = "";
-    formData.bus_people = 0;
-    setFormData({...formData});
-    console.log(formData);
-  } 
-
-  function onRouteChange(data: any) {
-    formData.bus_route = data.target.value;
-    setFormData({...formData});
+  function init () {
+    return {
+      busId: '',
+      routeId: '',
+      stationId: '',
+      noOfPassengers: 0
+    };
   }
 
-  function onStationChange(data: any) {
-    formData.bus_station = data.target.value;
-    setFormData({...formData});
+  async function onBusChange (event: React.ChangeEvent<HTMLSelectElement>) {
+    const busId: string = event.target.value;
+    setSelectedBus(busId);
+    setFormData({
+      busId: busId,
+      routeId: '',
+      stationId: '',
+      noOfPassengers: 0
+    });
+
+    // Fetch routes by the id of the bus selected
+    const res = await fetch(`${serverUrl}bussensus/buses/${busId}/routes`);
+    let routeData: Array<Route> = await res.json();
+    setRouteData(routeData);
   }
 
-  function getStation(): Array<string> {
-    if (selectedBus.station_from[0] === formData.bus_route) {
-      return selectedBus.station_to;
-    } 
-    return selectedBus.station_from;
+  async function onRouteChange (event: React.ChangeEvent<HTMLSelectElement>) {
+    setFormData((oldData) => ({ ...oldData, routeId: event.target.value }));
+
+    // Fetch stations by the id of the bus and route selected
+    const routeId = event.target.value;
+    const busId = selectedBus;
+    const res = await fetch(`${serverUrl}bussensus/buses/${busId}/routes/${routeId}/stations`);
+    let stationData: Array<Station> = await res.json();
+    setStationData(stationData);
   }
 
-  function onNrPeopleChange(data: any) {
-    formData.bus_people = data.target.valueAsNumber;
-    setFormData({...formData});
-    console.log(formData);
+  function onStationChange (event: React.ChangeEvent<HTMLSelectElement>) {
+    setFormData((oldData) => ({ ...oldData, stationId: event.target.value }));
   }
 
-  async function saveData(e:any) {
-    e.preventDefault();
-    formData.created_at = new Date();
-    formData.created_by = 1;
-    const res = await fetch(`api/form-data`, {
-      method: "POST",
-    body: JSON.stringify(formData)
-    })
+  function onNrPeopleChange (event: React.ChangeEvent<HTMLInputElement>) {
+    setFormData((oldData) => ({ ...oldData, noOfPassengers: event.target.valueAsNumber }));
+  }
+
+  // Fetch all saved data to a report
+  async function saveData (event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const res = await fetch(`${serverUrl}bussensus/reports`, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      method: 'POST',
+      body: JSON.stringify(formData)
+    });
+    setFormData(init());
+    setRouteData([]);
+    setStationData([]);
+    toast('Successfully Saved!');
   }
 
   return (
     <>
-    <h1 className="text-center mb-5">Welcome to Bus Sensus</h1>
-    <form onSubmit={saveData}>
-      <div className="mb-4 mx-1">
-        <label htmlFor="busNumber" className="form-label">Bus number</label>
-        <select className="form-select" aria-label="Bus number" id="busNumber" onChange={(event) => onBusChange(event)}>
-         <option value={"{}"}>Please select your bus</option>
-         {busData && busData.map((bus) => {
-          return (
-            <option value={JSON.stringify(bus)} key={bus.id}>
-              {bus.bus_number}
+      <h1 className='text-center mb-5'>Welcome to Bus Sensus</h1>
+      <form onSubmit={saveData}>
+        <div className='mb-4 mx-1'>
+          <label htmlFor='busName' className='form-label'>
+            Bus name
+          </label>
+          <select
+            className='form-select'
+            aria-label='busName'
+            id='busName'
+            name='busName'
+            value={formData.busId}
+            onChange={onBusChange}
+            required
+          >
+            <option value={''} disabled>
+              Please select your bus
             </option>
-          )
-         })}
-        </select>
-      </div>
-      <div className="mb-4 mx-1">
-        <label htmlFor="busRoute" className="form-label">Bus route</label>
-        <select className="form-select" aria-label="Bus route" id="busRoute" name="bus_route" value={formData.bus_route} onChange={(event) => onRouteChange(event)}>
-         <option value={""}>Please select your route</option>
-         {formData.bus_number ? (
-          <>
-          <option value={selectedBus.station_from[0]}>{selectedBus.station_from[0]}</option>
-          <option value={selectedBus.station_to[0]}>{selectedBus.station_to[0]}</option>
-          </>
-         ) : ( "" )}
-        </select>
-      </div>
-      <div className="mb-4 mx-1">
-        <label htmlFor="busStation" className="form-label">Station</label>
-        <select className="form-select" aria-label="Station" id="busStation" name="bus_station" value={formData.bus_station} onChange={(event) => onStationChange(event)}>
-         <option value={""}>Please select your station</option>
-         {formData.bus_number && formData.bus_route ? (
-          getStation().map((station, index:number) => {
-            return (
-              <option value={station} key={index}>
-                {station}
-              </option>
-            )
-          })
-         ) : ( "" )}
-        </select>
-      </div>
-      <div className="mb-4 mx-1 d-flex flex-column">
-        <label htmlFor="numberOfPeople" className="form-label">No. of people in the bus</label>
-        <input type="number" id="numberOfPeople" name="bus_people" value={formData.bus_people} aria-label="No. of people in the bus" onChange={(event) => onNrPeopleChange(event)}/>
-      </div>
-      <div className="d-flex flex-row-reverse">
-        <button className="submit-btn" type="submit">Submit</button>
-      </div>
-    </form>
+            {busData &&
+              busData.map((bus) => {
+                return (
+                  <option value={bus.busId} key={bus.busId}>
+                    {bus.name}
+                  </option>
+                );
+              })}
+          </select>
+        </div>
+        <div className='mb-4 mx-1'>
+          <label htmlFor='busRoute' className='form-label'>
+            Bus route
+          </label>
+          <select
+            className='form-select'
+            aria-label='busRoute'
+            id='busRoute'
+            name='busRoute'
+            value={formData.routeId}
+            onChange={onRouteChange}
+            required
+          >
+            <option value={''} disabled>
+              Please select your route
+            </option>
+            {routeData &&
+              routeData.map((route) => {
+                return (
+                  <option value={route.routeId} key={route.routeId}>
+                    {route.name}
+                  </option>
+                );
+              })}
+          </select>
+        </div>
+        <div className='mb-4 mx-1'>
+          <label htmlFor='busStation' className='form-label'>
+            Station
+          </label>
+          <select
+            className='form-select'
+            aria-label='Station'
+            id='busStation'
+            name='busStation'
+            value={formData.stationId}
+            onChange={onStationChange}
+            required
+          >
+            <option value={''} disabled>
+              Please select your station
+            </option>
+            {stationData &&
+              stationData.map((station) => {
+                return (
+                  <option value={station.stationId} key={station.stationId}>
+                    {station.name}
+                  </option>
+                );
+              })}
+          </select>
+        </div>
+        <div className='mb-4 mx-1 d-flex flex-column'>
+          <label htmlFor='noOfPassengers' className='form-label'>
+            No. of people in the bus
+          </label>
+          <input
+            type='number'
+            id='noOfPassengers'
+            name='noOfPassengers'
+            value={formData.noOfPassengers}
+            aria-label='No. of people in the bus'
+            onChange={(event) => onNrPeopleChange(event)}
+            required
+          />
+        </div>
+        <div className='d-flex flex-row-reverse'>
+          <button className='submit-btn' type='submit'>
+            Submit
+          </button>
+          <ToastContainer />
+        </div>
+      </form>
     </>
-  )
+  );
 }
